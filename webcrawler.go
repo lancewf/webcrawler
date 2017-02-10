@@ -11,11 +11,11 @@ type Fetcher interface {
 	Fetch(url string) (body string, urls []string, err error)
 }
 
-var agentStringCollection = concurrent.NewAgent([]string{})
+var agentStringCollection = concurrent.NewAgentStringCollection([]string{})
 
 // Crawl uses fetcher to recursively crawl
 // pages starting with url, to a maximum of depth.
-func Crawl(url string, depth int, fetcher Fetcher) {
+func crawl(url string, depth int, fetcher Fetcher) {
 	//println("working", url, depth)
 	// TODO: Fetch URLs in parallel.
 	// TODO: Don't fetch the same URL twice.
@@ -24,20 +24,18 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 		return
 	}
 
-	if containsString(agentStringCollection.Get().([]string), url) {
+	if containsString(agentStringCollection.GetStringCollection(), url) {
 		fmt.Printf("dup1: %s \n", url)
 		return
 	}
 
-	agentStringCollection.Send(func(object interface{}) interface{} {
-
-		currentUrls := object.([]string)
+	agentStringCollection.SendStringCollection(func(currentUrls []string) []string {
 		//fmt.Printf("in: %s \n", url)
-		if concurrent.ContainsString(currentUrls, url) {
+		if containsString(currentUrls, url) {
 			return currentUrls
 		}
 
-		go FetchAndCrawlLinks(url, depth, fetcher)
+		go fetchAndCrawlLinks(url, depth, fetcher)
 
 		return append(currentUrls, url)
 	})
@@ -56,7 +54,7 @@ func containsString(stringCollection []string, testString string) bool {
 }
 
 
-func FetchAndCrawlLinks(url string, depth int, fetcher Fetcher) {
+func fetchAndCrawlLinks(url string, depth int, fetcher Fetcher) {
 	body, foundUrls, err := fetcher.Fetch(url)
 	if err != nil {
 		fmt.Println(err)
@@ -65,12 +63,12 @@ func FetchAndCrawlLinks(url string, depth int, fetcher Fetcher) {
 	fmt.Printf("found: %s %q\n", url, body)
 	for _, u := range foundUrls {
 		//println("starting", u)
-		go Crawl(u, depth-1, fetcher)
+		go crawl(u, depth-1, fetcher)
 	}
 }
 
 func Start() {
-	Crawl("http://golang.org/", 4, fetcher)
+	crawl("http://golang.org/", 4, fetcher)
 
 	var input string
 	fmt.Scanln(&input)
